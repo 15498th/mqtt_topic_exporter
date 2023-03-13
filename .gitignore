@@ -1,0 +1,6 @@
+**/*.swp
+**/*.swo
+**/*~
+**/__pycache__/*
+.mypy_cache/*
+config.ini

@@ -15,25 +15,25 @@ class TestTopicToMetric(unittest.TestCase):
             metric_name='mqtt_metrics',
             metric_type='counter',
             metric_help=None,
-            no_activity_timeout = '120',
+            no_activity_timeout='120',
             topic_payload_pattern=r'test/([^/]+)/[^/ ]+ (\d+\.?\d*)',
             labels_template=r'name="\1"',
             value_template=r'\2'
         )
         self.ttm = TopicToMetric(conf)
-    
+
     def test_match_to_labels(self):
-        pattern=r'test/([^/]+)/[^ ]+ (.*)'
-        text='test/cnt1/data 1'
-        template=r'name="\1"'
+        pattern = r'test/([^/]+)/[^ ]+ (.*)'
+        text = 'test/cnt1/data 1'
+        template = r'name="\1"'
         expected_labels = 'name="cnt1"'
         labels = TopicToMetric.match_to_template(pattern, template, text)
         self.assertEqual(labels, expected_labels)
 
     def test_match_to_value(self):
-        pattern=r'test/([^/]+)/[^ ]+ (.*)'
-        text='test/cnt1/data 1'
-        template=r'\2'
+        pattern = r'test/([^/]+)/[^ ]+ (.*)'
+        text = 'test/cnt1/data 1'
+        template = r'\2'
         expected_value = '1'
         value = TopicToMetric.match_to_template(pattern, template, text)
         self.assertEqual(value, expected_value)

@@ -63,7 +63,7 @@ class Metric:
     metric_value: str = ''
     last_update = datetime.datetime.fromtimestamp(0)
     status_is_good: bool = False
-    
+
 
 class TopicToMetric:
 
@@ -192,7 +192,6 @@ class TryParse:
             return getattr(logging, level)
         except AttributeError as e:
             raise ValueError(f'invalid loglevel {level}') from e
-
 
 
 class MQTTConfig:
@@ -328,16 +327,17 @@ class Handler(WSGIRequestHandler):
 
     # from https://github.com/python/cpython/blob/main/Lib/http/server.py
     _control_char_table = str.maketrans(
-        {c: fr'\x{c:02x}' for c in itertools.chain(range(0x20), range(0x7f,0xa0))})
+        {c: fr'\x{c:02x}' for c in itertools.chain(range(0x20), range(0x7f, 0xa0))})
     _control_char_table[ord('\\')] = r'\\'
     _logger = logging.getLogger(WSGI_LOGGER_NAME)
 
     def log_message(self, fmt, *args):
         message = (fmt % args)
         self._logger.info("%s - - [%s] %s\n" %
-                         (self.address_string(),
-                          self.log_date_time_string(),
-                          message.translate(self._control_char_table)))
+                          (self.address_string(),
+                           self.log_date_time_string(),
+                           message.translate(self._control_char_table)))
+
 
 class PrometheusExporter:
 

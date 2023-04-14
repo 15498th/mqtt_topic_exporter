@@ -10,15 +10,17 @@ import logging.handlers
 import re
 from socketserver import ThreadingMixIn
 from typing import Dict, List, Optional, Tuple
-import uuid
 from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
 
 from paho.mqtt import client as mqtt
 
+from configloader import TryParse, try_parsing_section, load_config, ConfigurationError
+from mqttcmd import MQTTClient, MQTTConfig, Action
+from exporter import Metric, ExporterConfig, PrometheusExporter, WSGI_LOGGER_NAME
+
 
 MQTT_SECTION_NAME = 'mqtt'
 EXPORTER_SECTION_NAME = 'exporter'
-WSGI_LOGGER_NAME = 'web-server'
 
 @dataclass
 class TopicToMetricConfig:
@@ -57,57 +59,20 @@ class TopicToMetricConfig:
             self.no_activity_timeout = TryParse.timeout(self.no_activity_timeout)
 
 
-@dataclass
-class Metric:
-    metric_labels: str = ''
-    metric_value: str = ''
-    last_update = datetime.datetime.fromtimestamp(0)
-    status_is_good: bool = False
-
-
-class TopicToMetric:
+class TopicToMetric(Action):
 
     def __init__(self, conf: TopicToMetricConfig):
         self.conf = conf
-        self.processed_topics: Dict[str, Metric] = defaultdict(Metric)
+        self.processed_topics: Dict[str, Metric] = defaultdict(self._metric_factory)
 
-    def _render_metric_header(self) -> str:
-        conf = self.conf
-        metric_header = f'#TYPE {conf.metric_name} {conf.metric_type}\n'
-        if conf.metric_help:
-            metric_header += f'#HELP {conf.metric_name} {conf.metric_help}\n'
-        return metric_header
+    def _metric_factory(self):
+        return Metric(self.conf.metric_name,
+                      self.conf.metric_help,
+                      self.conf.metric_type,
+                      self.conf.no_activity_timeout)
 
-    def _render_metric_text(self) -> str:
-        conf = self.conf
-        metric_text = []
-        for topic, metric in self.processed_topics.items():
-            if conf.no_activity_timeout is not None:
-                timeout = datetime.timedelta(seconds=conf.no_activity_timeout)
-                if datetime.datetime.now() - metric.last_update > timeout:
-                    logging.info(f'{topic} outdated more than {conf.no_activity_timeout} seconds, skipping')
-                    continue
-            if not metric.status_is_good:
-                logging.info(f'{topic} has bad status, skipping')
-                continue
-            metric_text.append(f'{conf.metric_name}{{{metric.metric_labels}}} {metric.metric_value}\n')
-        return ''.join(metric_text)
-
-    def _valid_metric_value(self, value) -> bool:
-        if not self.conf.only_float_values:
-            return True
-        try:
-            float(value)
-            return True
-        except ValueError:
-            return False
-
-    def get_metric_text(self) -> str:
-        text = self._render_metric_text()
-        if text == '':
-            return ''
-        else:
-            return self._render_metric_header() + text
+    def get_topic(self):
+        return self.conf.topic
 
     def on_message(self, topic: str, payload: str):
         conf = self.conf
@@ -121,15 +86,18 @@ class TopicToMetric:
             conf.value_template,
             combined)
         if metric_labels is not None and metric_value is not None:
-            if not self._valid_metric_value(metric_value):
-                logging.debug(f'on topic {topic} ignoring message with non-float value "{payload}"')
             metric = self.processed_topics[topic]
-            metric.last_update = datetime.datetime.now()
-            if conf.status_good_topic is None:
-                metric.status_is_good = True
-            metric.metric_labels = metric_labels
-            metric.metric_value = metric_value
+            metric.update(metric_labels, metric_value)
         logging.debug(f'{topic} {payload}')
+
+    def get_metric_text(self):
+        header = self._metric_factory()._render_header()
+        text = ''.join([metric.get_metric_text(skip_header=True)
+                        for metric in self.processed_topics.values()])
+        if text:
+            return header + text
+        else:
+            return ''
 
     @classmethod
     def match_to_template(cls, pattern: str, template: str, text: str) -> Optional[str]:
@@ -138,108 +106,6 @@ class TopicToMetric:
         else:
             logging.warning(f'payload "{text}" doesn\'t match pattern "{pattern}"')
             return None
-
-    def _set_status(self, is_good: bool):
-        for topic, metric in self.processed_topics.items():
-            if metric.status_is_good != is_good:
-                metric.status_is_good = is_good
-                status = 'good' if is_good else 'bad'
-                logging.info(f'{metric} status changed to {status} by status topic message')
-
-    def on_status_good(self, topic, payload):
-        if self.conf.status_good_payload == payload:
-            self._set_status(True)
-
-    def on_status_bad(self, topic, payload):
-        if self.conf.status_bad_payload == payload:
-            self._set_status(False)
-
-
-class TryParse:
-
-    @staticmethod
-    def timeout(seconds):
-        try:
-            s = int(seconds)
-        except ValueError as e:
-            raise ValueError(f'non-integer time interval: {seconds}') from e
-        if s >= 0:
-            return s
-        else:
-            raise ValueError(f'negative time value {seconds}')
-
-    @staticmethod
-    def regexp(text):
-        try:
-            return re.compile(text)
-        except re.error as e:
-            raise ValueError(f'invalid regexp "{text}": {e}') from e
-
-    @staticmethod
-    def port(port):
-        try:
-            p = int(port)
-        except ValueError as e:
-            raise ValueError(f'port number must be an integer, got "{port}"') from e
-        if 1 <= p and p <= 0xFFFF:
-            return p
-        else:
-            raise ValueError(f'port value not in valid port range {port}')
-
-    @staticmethod
-    def loglevel(level):
-        try:
-            return getattr(logging, level)
-        except AttributeError as e:
-            raise ValueError(f'invalid loglevel {level}') from e
-
-
-class MQTTConfig:
-
-    def __init__(self, host, port=1883, keepalive=0, client_id=None, loglevel='INFO'):
-        self.host = host
-        self.port = TryParse.port(port)
-        self.keepalive = TryParse.timeout(keepalive)
-        if client_id is None:
-            client_id = 'topic_exporter' + str(uuid.getnode())
-        self.client_id = client_id
-        self.loglevel = TryParse.loglevel(loglevel)
-
-
-@dataclass
-class ExporterConfig:
-    metrics_path: str = '/metrics'
-    bind_address: str = '0.0.0.0'
-    port: int = 8840
-    log_path: str = 'exporter.log'
-    loglevel: str = 'INFO'
-
-    def __post_init__(self):
-        self.port = TryParse.port(self.port)
-        self.loglevel = TryParse.loglevel(self.loglevel)
-
-
-class ConfigurationError(Exception):
-    '''Failure to open or parse configuration file'''
-
-
-def load_config(path) -> configparser.ConfigParser:
-    c = configparser.ConfigParser()
-    # open explicitly to cause exception on error
-    # configparser will silently ignore non-existing file
-    try:
-        with open(path, 'rt') as fp:
-            c.read_file(fp)
-    except OSError as e:
-        raise ConfigurationError(f'Failed to load config file: {e}') from e
-    return c
-
-
-def try_parsing_section(name, factory_method, kwargs):
-    try:
-        return factory_method(**kwargs)
-    except (ValueError, TypeError) as e:
-        raise ConfigurationError(f'Error in section {name}: {e}') from e
 
 
 def parse_config(c: configparser.ConfigParser) -> Tuple[
@@ -259,127 +125,6 @@ def parse_config(c: configparser.ConfigParser) -> Tuple[
         ttm = TopicToMetric(ttm_config)
         ttms.append(ttm)
     return mqtt_conf, exporter_conf, ttms
-
-
-class MQTTClient:
-
-    def __init__(self, conf: MQTTConfig, ttms: List[TopicToMetric]):
-        self.conf = conf
-        self.ttms = ttms
-
-    def on_connect(self, mqttc, userdata, flags, rc):
-        logging.info(f'connected, rc: {rc}')
-        for ttm in self.ttms:
-            mqttc.subscribe(ttm.conf.topic)
-            on_message = self.wrap_on_message(ttm.on_message)
-            mqttc.message_callback_add(ttm.conf.topic, on_message)
-            if ttm.conf.status_good_topic is not None:
-                mqttc.subscribe(ttm.conf.status_good_topic)
-                on_status_good = self.wrap_on_message(ttm.on_status_good)
-                mqttc.message_callback_add(ttm.conf.status_good_topic, on_status_good)
-            if ttm.conf.status_bad_topic is not None:
-                mqttc.subscribe(ttm.conf.status_bad_topic)
-                on_status_bad = self.wrap_on_message(ttm.on_status_bad)
-                mqttc.message_callback_add(ttm.conf.status_bad_topic, on_status_bad)
-
-    def on_disconnect(self, mqttc, userdata, rc):
-        logging.warning(f'disconnected, rc: {rc}')
-
-    def wrap_on_message(self, func):
-        def on_message(mqttc, userdata, msg):
-            return func(msg.topic, msg.payload.decode())
-        return on_message
-
-    def _prepare_client(self):
-        config = self.conf
-
-        mqttc = mqtt.Client(config.client_id)
-        mqttc.on_connect = self.on_connect
-        mqttc.on_disconnect = self.on_disconnect
-
-        logger = logging.getLogger('paho.mqtt.client')
-        logger.setLevel(config.loglevel)
-        mqttc.enable_logger(logger)
-
-        try:
-            mqttc.connect(config.host, config.port, config.keepalive)
-        except OSError as e:
-            logging.warning(f'First connection to mqtt broker failed: {e}')
-
-        return mqttc
-
-    def run(self):
-        mqttc = self._prepare_client()
-        mqttc.loop_forever()
-
-    def run_bg(self):
-        '''run in separate thread'''
-        mqttc = self._prepare_client()
-        mqttc.loop_start()
-
-
-class ThreadingWSGIServer(WSGIServer, ThreadingMixIn):
-    """Thread per request HTTP server."""
-    daemon_threads = True
-
-
-class Handler(WSGIRequestHandler):
-
-    # from https://github.com/python/cpython/blob/main/Lib/http/server.py
-    _control_char_table = str.maketrans(
-        {c: fr'\x{c:02x}' for c in itertools.chain(range(0x20), range(0x7f, 0xa0))})
-    _control_char_table[ord('\\')] = r'\\'
-    _logger = logging.getLogger(WSGI_LOGGER_NAME)
-
-    def log_message(self, fmt, *args):
-        message = (fmt % args)
-        self._logger.info("%s - - [%s] %s\n" %
-                          (self.address_string(),
-                           self.log_date_time_string(),
-                           message.translate(self._control_char_table)))
-
-
-class PrometheusExporter:
-
-    def __init__(self, conf: ExporterConfig, ttms: List[TopicToMetric]):
-        self.ttms = ttms
-        self.conf = conf
-
-    def metrics_text(self) -> str:
-        metrics = []
-        for ttm in self.ttms:
-            metric_text = ttm.get_metric_text()
-            metrics.append(metric_text)
-        return ''.join(metrics)
-
-    def app(self, environ, start_response):
-        route = environ['PATH_INFO']
-        if route == self.conf.metrics_path:
-            headers = [("Content-type", "text/plain; charset=utf-8")]
-            status = '200 OK'
-            page = self.metrics_text()
-        elif route == '/favicon.ico':
-            status = '200 OK'
-            headers = [('', '')]
-            page = ''
-        elif route == '/':
-            status = '200 OK'
-            headers = [("Content-Type", "text/plain")]
-            page = '/metrics'
-        elif route == '/500':
-            raise Exception('Testing 500 error')
-        else:
-            status = '404 Not Found'
-            headers = [("Content-Type", "text/plain")]
-            page = 'Not Found'
-        start_response(status, headers)
-        return [page.encode('utf8')]
-
-    def run(self):
-        conf = self.conf
-        httpd = make_server(conf.bind_address, conf.port, self.app, ThreadingWSGIServer, Handler)
-        with httpd:
-            httpd.serve_forever()
 
 
 def set_root_logger(log_level=logging.INFO):

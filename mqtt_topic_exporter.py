@@ -14,7 +14,7 @@ from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
 
 from paho.mqtt import client as mqtt
 
-from configloader import TryParse, try_parsing_section, load_config, ConfigurationError
+from configloader import TryParse, ConfigurationError, ConfigLoader
 from mqttcmd import MQTTClient, MQTTConfig, Action
 from exporter import Metric, ExporterConfig, PrometheusExporter, WSGI_LOGGER_NAME
 
@@ -109,22 +109,17 @@ class TopicToMetric(Action):
 
 
 def parse_config(c: configparser.ConfigParser) -> Tuple[
-        MQTTConfig, ExporterConfig, List[TopicToMetric]]:
-    try:
-        mqtt_section = c[MQTT_SECTION_NAME]
-        exporter_section = c[EXPORTER_SECTION_NAME] if c.has_section(EXPORTER_SECTION_NAME) else {}
-    except KeyError as e:
-        raise ConfigurationError(f'config is missing non-arbitrary section {e}') from e
-    mqtt_conf = try_parsing_section('mqtt', MQTTConfig, mqtt_section)
-    exporter_conf = try_parsing_section('exporter', ExporterConfig, exporter_section)
-    ttms = []
-    for name, conf in c.items():
-        if name in (c.default_section, MQTT_SECTION_NAME, EXPORTER_SECTION_NAME):
-            continue
-        ttm_config = try_parsing_section(name, TopicToMetricConfig, conf)
-        ttm = TopicToMetric(ttm_config)
-        ttms.append(ttm)
-    return mqtt_conf, exporter_conf, ttms
+        MQTTConfig, ExporterConfig, List[TopicToMetricConfig]]:
+    configs_factories = {
+        MQTT_SECTION_NAME: MQTTConfig,
+        EXPORTER_SECTION_NAME: ExporterConfig,
+        c.default_section: TopicToMetricConfig
+    }
+    named_configs, ttms = ConfigLoader.parse_sections(c, configs_factories)
+    mqtt_conf = named_configs[MQTT_SECTION_NAME]
+    exporter_conf = named_configs.get(EXPORTER_SECTION_NAME) or ExporterConfig()
+    ttm_confs = list(ttms.values())
+    return mqtt_conf, exporter_conf, ttm_confs
 
 
 def set_root_logger(log_level=logging.INFO):
@@ -146,8 +141,9 @@ def set_loggers(mqtt_conf, exporter_conf):
 
 def main():
     set_root_logger(logging.DEBUG)
-    conf = load_config('config.ini')
-    mqtt_conf, exporter_conf, ttms = parse_config(conf)
+    conf = ConfigLoader.load_config('config.ini')
+    mqtt_conf, exporter_conf, ttm_confs = parse_config(conf)
+    ttms = [TopicToMetric(conf) for conf in ttm_confs]
     set_loggers(mqtt_conf, exporter_conf)
     mqttc = MQTTClient(mqtt_conf, ttms)
     mqttc.run_bg()

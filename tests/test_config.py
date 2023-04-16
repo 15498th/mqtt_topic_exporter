@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 
-from datetime import datetime
 from io import StringIO
 import unittest
 from unittest.mock import patch
 
-from mqtt_topic_exporter import TopicToMetricConfig, MQTTConfig, ExporterConfig, load_config, parse_config, ConfigurationError
+from mqtt_topic_exporter import TopicToMetricConfig, parse_config
+from mqttcmd import MQTTConfig
+from exporter import ExporterConfig
+from configloader import ConfigLoader, ConfigurationError
+
+
+load_config = ConfigLoader.load_config
 
 conf_mqtt_minimal = '''
 [mqtt]

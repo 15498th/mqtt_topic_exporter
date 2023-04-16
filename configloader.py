@@ -1,30 +1,70 @@
 #!/usr/bin/env python3
 
+from collections import defaultdict
 import configparser
 import logging
 import re
+from typing import Any, Dict, List, Tuple
 
 class ConfigurationError(Exception):
     '''Failure to open or parse configuration file'''
 
 
-def load_config(path) -> configparser.ConfigParser:
-    c = configparser.ConfigParser()
-    # open explicitly to cause exception on error
-    # configparser will silently ignore non-existing file
-    try:
-        with open(path, 'rt') as fp:
-            c.read_file(fp)
-    except OSError as e:
-        raise ConfigurationError(f'Failed to load config file: {e}') from e
-    return c
+class ConfigLoader:
 
+    @staticmethod
+    def load_config(path) -> configparser.ConfigParser:
+        c = configparser.ConfigParser()
+        # open explicitly to cause exception on error
+        # configparser will silently ignore non-existing file
+        try:
+            with open(path, 'rt') as fp:
+                c.read_file(fp)
+        except OSError as e:
+            raise ConfigurationError(f'Failed to load config file: {e}') from e
+        return c
 
-def try_parsing_section(name, factory_method, kwargs):
-    try:
-        return factory_method(**kwargs)
-    except (ValueError, TypeError) as e:
-        raise ConfigurationError(f'Error in section {name}: {e}') from e
+    @staticmethod
+    def try_getting_section(config: configparser.ConfigParser, name, default=None):
+        section = config.get(name, default)
+        if section is None:
+            msg = f'Missing non-arbitrary section "{name}" in config file'
+            raise ConfigurationError(msg)
+
+    @staticmethod
+    def try_parsing_section(name, factory_method, kwargs):
+        try:
+            return factory_method(**kwargs)
+        except (ValueError, TypeError) as e:
+            raise ConfigurationError(f'Error in section {name}: {e}') from e
+
+    @classmethod
+    def parse_sections(cls, config: configparser.ConfigParser, sections_factories: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        '''Make configuration objects from Configparser instance according to `sections_factories` mapping.
+        Keys should be section names, corresponding values are config factories.
+        Value from `ConfigParser.default_section` key is used as default to create
+        config from any section not specified in `sections_factories` directly.
+
+        Unused keys from `section_factories` that do not have corresponding
+        sections in config file are silently ignored in order to allow
+        providing default value for arbitrary sections.
+
+        Return values are two mapping {"section name": specific_config_instance}
+        one for sections, defined in `sections_factories` and another for the rest,
+        created with factory from `default_section`'''
+
+        named_configs = {}
+        normal_configs = {}
+        for name, conf in config.items():
+            if name == config.default_section:
+                continue
+            if name in sections_factories:
+                factory = sections_factories[name]
+                named_configs[name] = cls.try_parsing_section(name, factory, conf)
+            else:
+                factory = sections_factories[config.default_section]
+                normal_configs[name] = cls.try_parsing_section(name, factory, conf)
+        return named_configs, normal_configs
 
 
 class TryParse:

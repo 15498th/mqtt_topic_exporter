@@ -146,6 +146,12 @@ class TestExporterConfig(unittest.TestCase):
         with self.assertRaises(ConfigurationError):
             parse_config(conf)
 
+    def test_empty_section(self):
+        conf_exporter = '[exporter]' + '\n'
+        text = conf_exporter + self._config_text
+        conf = get_config_for(text)
+        parse_config(conf)
+
 
 class TestTTMConfig(unittest.TestCase):
 

@@ -41,13 +41,14 @@ class ConfigLoader:
     @classmethod
     def parse_sections(cls, config: configparser.ConfigParser, sections_factories: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         '''Make configuration objects from Configparser instance according to `sections_factories` mapping.
-        Keys should be section names, corresponding values are config factories.
+        Keys should be section names, corresponding values are factory methods
+        to create specific config object from section dictionary.
+
         Value from `ConfigParser.default_section` key is used as default to create
         config from any section not specified in `sections_factories` directly.
 
-        Unused keys from `section_factories` that do not have corresponding
-        sections in config file are silently ignored in order to allow
-        providing default value for arbitrary sections.
+        Keys from `section_factories` that do not have corresponding
+        sections in config file are treated the same as having empty sections.
 
         Return values are two mapping {"section name": specific_config_instance}
         one for sections, defined in `sections_factories` and another for the rest,
@@ -64,6 +65,13 @@ class ConfigLoader:
             else:
                 factory = sections_factories[config.default_section]
                 normal_configs[name] = cls.try_parsing_section(name, factory, conf)
+        for name, factory in sections_factories.items():
+            if name == config.default_section or name in named_configs:
+                continue
+            try:
+                named_configs[name] = factory()
+            except TypeError as e:
+                raise ConfigurationError(f'config is missing non-arbitrary section {name}') from e
         return named_configs, normal_configs
 
 

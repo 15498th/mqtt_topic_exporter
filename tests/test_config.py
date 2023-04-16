@@ -157,7 +157,7 @@ class TestTTMConfig(unittest.TestCase):
 
     def setUp(self):
         self._config_text = conf_exporter_minimal + conf_mqtt_minimal
-        self.base_config_text = conf_ttm_full  + self._config_text
+        self.base_config_text = conf_ttm_full + self._config_text
 
     def test_incomplete(self):
         conf_ttm = '[sensors]\ntopic = sensors/#\n'

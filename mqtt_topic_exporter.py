@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import configparser
 from collections import defaultdict
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ import logging
 import logging.handlers
 import re
 from socketserver import ThreadingMixIn
+import sys
 from typing import Dict, List, Optional, Tuple
 from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
 
@@ -139,9 +141,10 @@ def set_loggers(mqtt_conf, exporter_conf):
     server_logger.propagate = False
 
 
-def main():
-    set_root_logger(logging.DEBUG)
-    conf = ConfigLoader.load_config('config.ini')
+def main(args):
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    set_root_logger(log_level)
+    conf = ConfigLoader.load_config(args.config)
     mqtt_conf, exporter_conf, ttm_confs = parse_config(conf)
     ttms = [TopicToMetric(conf) for conf in ttm_confs]
     set_loggers(mqtt_conf, exporter_conf)
@@ -151,8 +154,25 @@ def main():
     exporter.run()
 
 
+def args_parse():
+    description = 'Serve MQTT messages on specific topics as Prometheus metrics'
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument('--config', '-c', default='config.ini', metavar='PATH',
+                        help='Path to configuration file, default is %(default)s')
+    parser.add_argument('--verbose', '-v',
+                        action='store_true', default=False,
+                        help='Show debug output')
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
     try:
-        main()
+        main(args_parse())
+    except ConfigurationError as e:
+        logging.error(e)
+        sys.exit(1)
+    except Exception as e:
+        logging.exception(e)
+        sys.exit(1)
     except KeyboardInterrupt:
         print('Stopping...')

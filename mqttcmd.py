@@ -13,7 +13,7 @@ from configloader import TryParse
 
 class MQTTConfig:
 
-    def __init__(self, host, port=1883, keepalive=0, client_id=None, loglevel='INFO'):
+    def __init__(self, host, port=1883, keepalive=0, client_id=None, loglevel='INFO', username=None, password=None):
         self.host = host
         self.port = TryParse.port(port)
         self.keepalive = TryParse.timeout(keepalive)
@@ -21,6 +21,8 @@ class MQTTConfig:
             client_id = 'mqtt-cmd-' + str(uuid.getnode())
         self.client_id = client_id
         self.loglevel = TryParse.loglevel(loglevel)
+        self.username = username
+        self.password = password
 
 
 class Action:
@@ -66,6 +68,9 @@ class MQTTClient:
         logger = logging.getLogger('paho.mqtt.client')
         logger.setLevel(config.loglevel)
         mqttc.enable_logger(logger)
+
+        if self.conf.username is not None:
+            mqttc.username_pw_set(self.conf.username, self.conf.password)
 
         try:
             mqttc.connect(config.host, config.port, config.keepalive)

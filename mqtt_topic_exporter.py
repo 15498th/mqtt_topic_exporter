@@ -17,7 +17,7 @@ from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
 from paho.mqtt import client as mqtt
 
 from configloader import TryParse, ConfigurationError, ConfigLoader
-from mqttcmd import MQTTClient, MQTTConfig, Action
+from mqttcmd import MQTTClient, MQTTConfig, Action, MQTT_LOGGER_NAME
 from exporter import Metric, ExporterConfig, PrometheusExporter, WSGI_LOGGER_NAME
 
 
@@ -90,7 +90,7 @@ class TopicToMetric(Action):
         if metric_labels is not None and metric_value is not None:
             metric = self.processed_topics[topic]
             metric.update(metric_labels, metric_value)
-        logging.debug(f'{topic} {payload}')
+        logging.debug(f'[MQTT] {topic} {payload}')
 
     def get_metric_text(self):
         header = self._metric_factory()._render_header()
@@ -106,7 +106,7 @@ class TopicToMetric(Action):
         if re.match(pattern, text) is not None:
             return re.sub(pattern, template, text)
         else:
-            logging.warning(f'payload "{text}" doesn\'t match pattern "{pattern}"')
+            logging.debug(f'payload "{text}" doesn\'t match pattern "{pattern}"')
             return None
 
 
@@ -125,12 +125,12 @@ def parse_config(c: configparser.ConfigParser) -> Tuple[
 
 
 def set_root_logger(log_level=logging.INFO):
-    log_format = '[%(asctime)s] %(name)s %(message)s'
+    log_format = '[%(asctime)s] %(message)s'
     date_format = '%Y/%m/%d %H:%M:%S'
     logging.basicConfig(level=log_level, format=log_format, datefmt=date_format)
 
 
-def set_loggers(mqtt_conf, exporter_conf):
+def set_wsgi_logger(exporter_conf):
     handler = logging.handlers.RotatingFileHandler(
         exporter_conf.log_path, maxBytes=100000, backupCount=3)
     formatter = logging.Formatter('%(message)s')
@@ -144,12 +144,15 @@ def set_loggers(mqtt_conf, exporter_conf):
 def main(args):
     log_level = logging.DEBUG if args.verbose else logging.INFO
     set_root_logger(log_level)
+
     conf = ConfigLoader.load_config(args.config)
     mqtt_conf, exporter_conf, ttm_confs = parse_config(conf)
     ttms = [TopicToMetric(conf) for conf in ttm_confs]
-    set_loggers(mqtt_conf, exporter_conf)
+
     mqttc = MQTTClient(mqtt_conf, ttms)
     mqttc.run_bg()
+
+    set_wsgi_logger(exporter_conf)
     exporter = PrometheusExporter(exporter_conf, ttms)
     exporter.run()
 

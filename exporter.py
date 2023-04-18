@@ -34,7 +34,7 @@ class Metric:
         return metric_header
 
     def _render_body(self) -> str:
-        return f'{self.metric_name}{{{self.metric_labels}}} {self.metric_value}\n'
+        return f'{self.metric_name}{{{self.metric_labels}}} {self.metric_value}'
 
     def _valid_metric_value(self) -> bool:
         try:
@@ -44,21 +44,26 @@ class Metric:
             return False
 
     def get_metric_text(self, skip_header=False) -> str:
+        header = self._render_header() if not skip_header else ''
+        body = self._render_body()
+
         if self.no_activity_timeout is not None:
             timeout = datetime.timedelta(seconds=self.no_activity_timeout)
             if datetime.datetime.now() - self.last_update > timeout:
+                logging.debug(f'[skip metric: no activity] {body}')
                 return ''
         if not self._valid_metric_value():
+            logging.debug(f'[skip metric: non-numeric value] {body}')
             return ''
-        if skip_header:
-            return self._render_body()
-        else:
-            return self._render_header() + self._render_body()
+
+        logging.debug(f'[render metric] {body}')
+        return header + body + '\n'
 
     def update(self, labels: str, value):
         self.metric_labels = labels
         self.metric_value = value
         self.last_update = datetime.datetime.now()
+        logging.debug(f'[update metric] {self._render_body()}')
 
 
 @dataclass
@@ -133,6 +138,7 @@ class PrometheusExporter:
 
     def run(self):
         conf = self.conf
+        logging.info(f'Starting web-server at {conf.bind_address}:{conf.port}{self.conf.metrics_path}')
         httpd = make_server(conf.bind_address, conf.port, self.app, ThreadingWSGIServer, Handler)
         with httpd:
             httpd.serve_forever()

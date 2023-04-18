@@ -11,6 +11,8 @@ from paho.mqtt import client as mqtt
 from configloader import TryParse
 
 
+MQTT_LOGGER_NAME = 'paho.mqtt.client'
+
 class MQTTConfig:
 
     def __init__(self, host, port=1883, keepalive=0, client_id=None, loglevel='INFO', username=None, password=None):
@@ -44,14 +46,16 @@ class MQTTClient:
         self.uows = uows
 
     def on_connect(self, mqttc, userdata, flags, rc):
-        logging.info(f'connected, rc: {rc}')
+        # no point checkin rc here: on_disconnect will be called on error
+        logging.info(f'Connected to MQTT broker {self.conf.host}:{self.conf.port}')
         for uow in self.uows:
             mqttc.subscribe(uow.get_topic())
             on_message = self.wrap_on_message(uow.on_message)
             mqttc.message_callback_add(uow.get_topic(), on_message)
 
     def on_disconnect(self, mqttc, userdata, rc):
-        logging.warning(f'disconnected, rc: {rc}')
+        reason = mqtt.error_string(rc)
+        logging.warning(f'Disconnected from MQTT broker {self.conf.host}:{self.conf.port}. {reason}')
 
     def wrap_on_message(self, func):
         def on_message(mqttc, userdata, msg):
@@ -65,7 +69,7 @@ class MQTTClient:
         mqttc.on_connect = self.on_connect
         mqttc.on_disconnect = self.on_disconnect
 
-        logger = logging.getLogger('paho.mqtt.client')
+        logger = logging.getLogger(MQTT_LOGGER_NAME)
         logger.setLevel(config.loglevel)
         mqttc.enable_logger(logger)
 
@@ -75,7 +79,9 @@ class MQTTClient:
         try:
             mqttc.connect(config.host, config.port, config.keepalive)
         except OSError as e:
-            logging.warning(f'First connection to mqtt broker failed: {e}')
+            logging.warning(f'First connection to MQTT broker {config.host}:{config.port} failed: {e}')
+            logging.warning('Check if configuration is correct and server is running')
+            logging.warning('Will keep retrying in case this is temporarly error')
 
         return mqttc
 

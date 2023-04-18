@@ -119,7 +119,7 @@ def parse_config(c: configparser.ConfigParser) -> Tuple[
     }
     named_configs, ttms = ConfigLoader.parse_sections(c, configs_factories)
     mqtt_conf = named_configs[MQTT_SECTION_NAME]
-    exporter_conf = named_configs.get(EXPORTER_SECTION_NAME) or ExporterConfig()
+    exporter_conf = named_configs[EXPORTER_SECTION_NAME]
     ttm_confs = list(ttms.values())
     return mqtt_conf, exporter_conf, ttm_confs
 

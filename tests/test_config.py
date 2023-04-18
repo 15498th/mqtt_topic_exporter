@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
-from io import StringIO
 import unittest
+from io import StringIO
 from unittest.mock import patch
 
+from configloader import ConfigLoader, ConfigurationError
+from exporter import ExporterConfig
 from mqtt_topic_exporter import TopicToMetricConfig, parse_config
 from mqttcmd import MQTTConfig
-from exporter import ExporterConfig
-from configloader import ConfigLoader, ConfigurationError
-
 
 load_config = ConfigLoader.load_config
 

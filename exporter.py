@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 
-from dataclasses import dataclass
 import datetime
 import itertools
 import logging
 import logging.handlers
+from dataclasses import dataclass
 from socketserver import ThreadingMixIn
 from typing import List
-from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
+from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
 
 from configloader import TryParse
-
 
 WSGI_LOGGER_NAME = 'web-server'
 

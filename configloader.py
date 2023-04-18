@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-from collections import defaultdict
 import configparser
 import logging
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
+
 
 class ConfigurationError(Exception):
     '''Failure to open or parse configuration file'''

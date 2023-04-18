@@ -2,24 +2,20 @@
 
 import argparse
 import configparser
-from collections import defaultdict
-from dataclasses import dataclass
-import datetime
-import itertools
 import logging
 import logging.handlers
 import re
-from socketserver import ThreadingMixIn
 import sys
+from collections import defaultdict
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
-from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
 
 from paho.mqtt import client as mqtt
 
-from configloader import TryParse, ConfigurationError, ConfigLoader
-from mqttcmd import MQTTClient, MQTTConfig, Action, MQTT_LOGGER_NAME
-from exporter import Metric, ExporterConfig, PrometheusExporter, WSGI_LOGGER_NAME
-
+from configloader import ConfigLoader, ConfigurationError, TryParse
+from exporter import (WSGI_LOGGER_NAME, ExporterConfig, Metric,
+                      PrometheusExporter)
+from mqttcmd import Action, MQTTClient, MQTTConfig
 
 MQTT_SECTION_NAME = 'mqtt'
 EXPORTER_SECTION_NAME = 'exporter'

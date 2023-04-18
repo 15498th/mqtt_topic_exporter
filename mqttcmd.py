@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 
-from abc import abstractmethod
 import logging
 import logging.handlers
-from typing import List
 import uuid
+from abc import abstractmethod
+from typing import List
 
 from paho.mqtt import client as mqtt
 
 from configloader import TryParse
-
 
 MQTT_LOGGER_NAME = 'paho.mqtt.client'
 

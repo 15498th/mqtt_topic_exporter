@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-from datetime import datetime, timedelta
 import unittest
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from mqtt_topic_exporter import TopicToMetricConfig, TopicToMetric
+from mqtt_topic_exporter import TopicToMetric, TopicToMetricConfig
 
 
 class TestTopicToMetric(unittest.TestCase):

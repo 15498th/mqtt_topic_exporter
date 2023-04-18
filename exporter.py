@@ -121,7 +121,7 @@ class PrometheusExporter:
         elif route == '/':
             status = '200 OK'
             headers = [("Content-Type", "text/plain")]
-            page = '/metrics'
+            page = f'{self.conf.metrics_path}'
         elif route == '/500':
             raise Exception('Testing 500 error')
         else:

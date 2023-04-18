@@ -6,6 +6,12 @@ import re
 from typing import Any, Dict, Tuple
 
 
+def set_root_logger(log_level=logging.INFO):
+    log_format = '[%(asctime)s] %(message)s'
+    date_format = '%Y/%m/%d %H:%M:%S'
+    logging.basicConfig(level=log_level, format=log_format, datefmt=date_format)
+
+
 class ConfigurationError(Exception):
     '''Failure to open or parse configuration file'''
 

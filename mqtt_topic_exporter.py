@@ -12,9 +12,10 @@ from typing import Dict, List, Optional, Tuple
 
 from paho.mqtt import client as mqtt
 
-from configloader import ConfigLoader, ConfigurationError, TryParse
+from configloader import (ConfigLoader, ConfigurationError, TryParse,
+                          set_root_logger)
 from exporter import (WSGI_LOGGER_NAME, ExporterConfig, Metric,
-                      PrometheusExporter)
+                      PrometheusExporter, set_wsgi_logger)
 from mqttcmd import Action, MQTTClient, MQTTConfig
 
 MQTT_SECTION_NAME = 'mqtt'
@@ -118,23 +119,6 @@ def parse_config(c: configparser.ConfigParser) -> Tuple[
     exporter_conf = named_configs[EXPORTER_SECTION_NAME]
     ttm_confs = list(ttms.values())
     return mqtt_conf, exporter_conf, ttm_confs
-
-
-def set_root_logger(log_level=logging.INFO):
-    log_format = '[%(asctime)s] %(message)s'
-    date_format = '%Y/%m/%d %H:%M:%S'
-    logging.basicConfig(level=log_level, format=log_format, datefmt=date_format)
-
-
-def set_wsgi_logger(exporter_conf):
-    handler = logging.handlers.RotatingFileHandler(
-        exporter_conf.log_path, maxBytes=100000, backupCount=3)
-    formatter = logging.Formatter('%(message)s')
-    handler.setFormatter(formatter)
-    server_logger = logging.getLogger(WSGI_LOGGER_NAME)
-    server_logger.addHandler(handler)
-    server_logger.setLevel(exporter_conf.loglevel)
-    server_logger.propagate = False
 
 
 def main(args):

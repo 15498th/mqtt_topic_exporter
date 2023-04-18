@@ -78,6 +78,17 @@ class ExporterConfig:
         self.loglevel = TryParse.loglevel(self.loglevel)
 
 
+def set_wsgi_logger(exporter_conf: ExporterConfig):
+    handler = logging.handlers.RotatingFileHandler(
+        exporter_conf.log_path, maxBytes=100000, backupCount=3)
+    formatter = logging.Formatter('%(message)s')
+    handler.setFormatter(formatter)
+    server_logger = logging.getLogger(WSGI_LOGGER_NAME)
+    server_logger.addHandler(handler)
+    server_logger.setLevel(exporter_conf.loglevel)
+    server_logger.propagate = False
+
+
 class ThreadingWSGIServer(WSGIServer, ThreadingMixIn):
     """Thread per request HTTP server."""
     daemon_threads = True

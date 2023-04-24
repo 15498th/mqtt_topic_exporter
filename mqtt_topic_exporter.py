@@ -10,8 +10,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-from paho.mqtt import client as mqtt
-
 from configloader import (ConfigLoader, ConfigurationError, TryParse,
                           set_root_logger)
 from exporter import (WSGI_LOGGER_NAME, ExporterConfig, Metric,

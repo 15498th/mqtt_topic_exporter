@@ -1,9 +1,13 @@
 **/*.swp
 **/*.swo
 **/*~
+
 **/__pycache__/*
 .mypy_cache/*
 .python-version
+
 mqtt-topic-exporter.ini
 mqtt-cmd.ini
 *.log
+*.wav
+*.WAV

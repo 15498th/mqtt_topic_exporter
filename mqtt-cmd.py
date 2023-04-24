@@ -76,7 +76,7 @@ def main(args):
 def args_parse():
     description = 'Run pre-defined command when receiving MQTT messages on specific topics'
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('--config', '-c', default='config.ini', metavar='PATH',
+    parser.add_argument('--config', '-c', default='mqtt-cmd.ini', metavar='PATH',
                         help='Path to configuration file, default is %(default)s')
     parser.add_argument('--verbose', '-v',
                         action='store_true', default=False,

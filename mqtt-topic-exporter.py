@@ -138,7 +138,7 @@ def main(args):
 def args_parse():
     description = 'Serve MQTT messages on specific topics as Prometheus metrics'
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('--config', '-c', default='config.ini', metavar='PATH',
+    parser.add_argument('--config', '-c', default='mqtt-topic-exporter.ini', metavar='PATH',
                         help='Path to configuration file, default is %(default)s')
     parser.add_argument('--verbose', '-v',
                         action='store_true', default=False,

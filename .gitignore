@@ -4,5 +4,6 @@
 **/__pycache__/*
 .mypy_cache/*
 .python-version
-config.ini
+mqtt-topic-exporter.ini
+mqtt-cmd.ini
 *.log

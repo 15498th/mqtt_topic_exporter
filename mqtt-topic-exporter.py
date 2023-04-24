@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Tuple
 
 from configloader import (ConfigLoader, ConfigurationError, TryParse,
                           set_root_logger)
-from exporter import (WSGI_LOGGER_NAME, ExporterConfig, Metric,
+from exporter import (ExporterConfig, Metric,
                       PrometheusExporter, set_wsgi_logger)
 from mqttcmd import Action, MQTTClient, MQTTConfig
 

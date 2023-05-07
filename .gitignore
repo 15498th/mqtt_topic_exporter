@@ -6,8 +6,8 @@
 .mypy_cache/*
 .python-version
 
-mqtt-topic-exporter.ini
-mqtt-cmd.ini
+mqtt_topic_exporter.ini
+mqtt_cmd.ini
 *.log
 *.wav
 *.WAV

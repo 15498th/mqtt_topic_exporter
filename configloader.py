@@ -42,7 +42,7 @@ class ConfigLoader:
         try:
             return factory_method(**kwargs)
         except (ValueError, TypeError) as e:
-            raise ConfigurationError(f'Error in section {name}: {e}') from e
+            raise ConfigurationError(f'Error in section "{name}": {e}') from e
 
     @classmethod
     def parse_sections(cls, config: configparser.ConfigParser, sections_factories: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:

@@ -38,8 +38,6 @@ conf_ttm_minimal = '''
 topic = test/cnt1/#
 metric_name = mqtt_metrics
 metric_type = counter
-metric_help =
-no_activity_timeout = 180
 topic_payload_pattern = test/([^/]+)/[^/ ]+ (\d+\.?\d*)
 labels_template = name="\1", id="\1"
 value_template = \2
@@ -57,6 +55,8 @@ topic_payload_pattern = test/([^/]+)/[^/ ]+ (\d+\.?\d*)
 labels_template = name="\1", id="\1"
 value_template = \2
 topic_payload_separator =
+
+no_activity_timeout = 180
 
 only_float_values =
 

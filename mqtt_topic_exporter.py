@@ -28,13 +28,15 @@ class TopicToMetricConfig:
     # static part of metric
     metric_name: str
     metric_type: str
-    metric_help: Optional[str]
 
     # extraction of labels and value
     topic_payload_pattern: str
     labels_template: str
     value_template: str
     topic_payload_separator: str = ' '
+
+    # static part of metric, p.2
+    metric_help: str = ''
 
     # do not generate metric if last message on topic
     # was more than no_activity_timeout seconds ago

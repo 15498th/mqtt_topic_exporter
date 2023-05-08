@@ -57,13 +57,6 @@ value_template = \2
 topic_payload_separator =
 
 no_activity_timeout = 180
-
-only_float_values =
-
-status_good_topic = test/cnt1/status
-status_bad_topic = test/cnt1/status
-status_good_payload = online
-status_bad_payload = offline
 '''
 
 

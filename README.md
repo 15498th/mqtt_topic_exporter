@@ -122,7 +122,35 @@ value_template = 0
 no_activity_timeout = 180
 ```
 
+## mqtt_cmd
 
+Utility script, using too much of mqtt_topic_exporter code to move it in separate repository. Used to monitor MQTT topic and execute shell command if payload matches template.
+
+### Usage
+```
+usage: mqtt_cmd.py [-h] [--config PATH] [--verbose]
+
+Run pre-defined command when receiving MQTT messages on specific topics
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --config PATH, -c PATH
+                        Path to configuration file, default is mqtt_cmd.ini
+  --verbose, -v         Show debug output
+```
+### Configuration
+
+Uses same format with single section for broker connection details and one section per topic + payload to command mapping.
+
+#### Broker connection section
+
+Same as for MQTT Topic Exporter: [\[mqtt\]](#broker-connection-section)
+
+#### Command section
+
+- `topic` - topic that will be subscribed and processed in this section
+- `payload` - regular expression which payload should match in order to be processed. Can be omitted to make any value match
+- `cmd` - shell command to execute
 
 
 
